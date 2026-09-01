@@ -46,6 +46,8 @@
       ? reviewer.reviewed_segment_ids.map(String) : []);
     const paragraphBreakIds = new Set(Array.isArray(reviewer.paragraph_break_segment_ids)
       ? reviewer.paragraph_break_segment_ids.map(String) : []);
+    const excludedIds = new Set(Array.isArray(reviewer.excluded_segment_ids)
+      ? reviewer.excluded_segment_ids.map(String) : []);
     const ids = [];
 
     raw.segments.forEach((segment) => {
@@ -80,6 +82,7 @@
           ? UNASSIGNED : String(segment.speaker),
         reviewed: reviewedIds.has(String(id)),
         paragraphBreakBefore: paragraphBreakIds.has(String(id)),
+        excludedFromOutput: excludedIds.has(String(id)),
         changed: false
       };
     });
@@ -97,6 +100,10 @@
 
   function speakerName(project, speakerId) {
     return project.speakers[speakerId]?.name || (speakerId === UNASSIGNED ? "Unassigned" : speakerId);
+  }
+
+  function includedSegments(project) {
+    return project.segments.filter((segment) => !segment.excludedFromOutput);
   }
 
   function buildCorrectedJson(project, options) {
@@ -127,7 +134,7 @@
     copy.reviewer = {
       ...(copy.reviewer && typeof copy.reviewer === "object" ? copy.reviewer : {}),
       schema: "atrain-transcript-reviewer",
-      schema_version: 2,
+      schema_version: 3,
       project_id: project.projectId,
       updated_at: options?.updatedAt || new Date().toISOString(),
       speakers,
@@ -135,14 +142,17 @@
       paragraph_break_segment_ids: project.segments
         .filter((segment, index) => index > 0 && segment.paragraphBreakBefore)
         .map((segment) => segment.id),
+      excluded_segment_ids: project.segments
+        .filter((segment) => segment.excludedFromOutput)
+        .map((segment) => segment.id),
       srt_includes_speakers: options?.speakerInSrt !== false,
-      note: "Segment text and speaker fields are canonical. Paragraph boundaries are reviewer metadata. Original word timings are retained; word-level text is not reconstructed after textual corrections."
+      note: "Segment text and speaker fields are canonical. Paragraph boundaries and output exclusions are reversible reviewer metadata. Excluded segments remain in the canonical transcript for provenance and later processing, but are omitted from human-facing transcript exports. Original word timings are retained; word-level text is not reconstructed after textual corrections."
     };
     return copy;
   }
 
   function buildSrt(project, includeSpeakers) {
-    return project.segments.map((segment, index) => {
+    return includedSegments(project).map((segment, index) => {
       const name = speakerName(project, segment.speakerId);
       const text = cleanText(segment.text);
       const rendered = includeSpeakers ? `${name}: ${text}` : text;
@@ -157,16 +167,20 @@
   function groupedBlocks(project, withTimestamps, maxqda) {
     const blocks = [];
     let current = null;
-    project.segments.forEach((segment, index) => {
+    let previousSourceIndex = -2;
+    includedSegments(project).forEach((segment) => {
+      const sourceIndex = project.segments.indexOf(segment);
       const name = speakerName(project, segment.speakerId);
-      const forcedBreak = index > 0 && segment.paragraphBreakBefore;
-      if (!current || current.name !== name || forcedBreak) {
+      const forcedBreak = sourceIndex > 0 && segment.paragraphBreakBefore;
+      const discontinuity = sourceIndex !== previousSourceIndex + 1;
+      if (!current || current.name !== name || forcedBreak || discontinuity) {
         current = { name, lines: [] };
         blocks.push(current);
       }
       const text = cleanText(segment.text);
       if (withTimestamps) current.lines.push(`[${formatClock(segment.start, false)}] - ${text}`);
       else current.lines.push(text);
+      previousSourceIndex = sourceIndex;
     });
 
     return blocks.map((block) => {
@@ -190,14 +204,18 @@
   function buildMarkdownTranscript(project) {
     const blocks = [];
     let current = null;
-    project.segments.forEach((segment, index) => {
+    let previousSourceIndex = -2;
+    includedSegments(project).forEach((segment) => {
+      const sourceIndex = project.segments.indexOf(segment);
       const name = speakerName(project, segment.speakerId);
-      const forcedBreak = index > 0 && segment.paragraphBreakBefore;
-      if (!current || current.name !== name || forcedBreak) {
+      const forcedBreak = sourceIndex > 0 && segment.paragraphBreakBefore;
+      const discontinuity = sourceIndex !== previousSourceIndex + 1;
+      if (!current || current.name !== name || forcedBreak || discontinuity) {
         current = { name, rows: [] };
         blocks.push(current);
       }
       current.rows.push(`**[${formatClock(segment.start, false)}]** ${cleanText(segment.text)}`);
+      previousSourceIndex = sourceIndex;
     });
     return [
       `# ${sourceTitle(project.projectId)}`,
@@ -224,6 +242,7 @@
     formatClock,
     normalizeProject,
     speakerName,
+    includedSegments,
     buildCorrectedJson,
     buildSrt,
     buildPlainTranscript,
