@@ -139,21 +139,32 @@
   border-radius: 3px;
 }
 
+/* Excluded material is represented by paragraph-level dimming only. Do not
+   overlay changed/active highlighting on text that is intentionally hidden
+   from final output. */
+.transcript-paragraph.excluded-from-output .paragraph-segment.segment .segment-inline-text,
+.transcript-paragraph.excluded-from-output .paragraph-segment.segment.active .segment-inline-text,
+.transcript-paragraph.excluded-from-output .paragraph-segment.segment.changed .segment-inline-text {
+  background: transparent;
+  box-shadow: none;
+}
+
 .segment-tools {
   position: relative;
-  top: -0.2em;
   display: inline-flex;
   width: 0.72em;
-  height: 1.5em;
+  height: 1em;
   margin: 0 0.08em 0 0.02em;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  vertical-align: middle;
+  justify-content: center;
+  vertical-align: baseline;
 }
 
 .audio-anchor,
 .segment-menu-button {
+  position: absolute;
+  left: 0;
   display: block;
   width: 100%;
   margin: 0;
@@ -164,12 +175,12 @@
 }
 
 .audio-anchor {
-  height: 0.5em;
+  top: 0.02em;
+  height: 0.46em;
   color: var(--blue);
   opacity: 0.3;
   font-size: 0.46rem;
-  line-height: 0.5em;
-  transform: translateY(-0.08em);
+  line-height: 0.46em;
   transition: opacity 100ms ease, transform 100ms ease;
 }
 
@@ -177,17 +188,17 @@
 .audio-anchor:focus-visible,
 .paragraph-segment.active .audio-anchor {
   opacity: 0.95;
-  transform: translateY(-0.08em) scale(1.18);
+  transform: scale(1.18);
 }
 
 .segment-menu-button {
-  height: 0.68em;
+  bottom: 0.02em;
+  height: 0.52em;
   color: var(--muted);
   border-radius: 2px;
   opacity: 0.22;
   font-size: 0.64rem;
-  line-height: 0.68em;
-  transform: translateY(0.3em);
+  line-height: 0.52em;
   transition: opacity 100ms ease, background 100ms ease;
 }
 
