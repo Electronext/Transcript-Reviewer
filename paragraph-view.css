@@ -16,11 +16,30 @@
   padding: 5px 8px 12px 15px;
   border-left: 3px solid var(--speaker-color);
   border-radius: 6px;
+  transition: opacity 120ms ease, background 120ms ease;
 }
 
 .transcript-paragraph + .transcript-paragraph { margin-top: 12px; }
-.paragraph-heading { display: flex; align-items: center; gap: 7px; margin: 0 0 4px; }
-.paragraph-speaker-swatch { width: 7px; height: 7px; background: var(--speaker-color); border-radius: 50%; }
+.transcript-paragraph.excluded-from-output {
+  opacity: 0.5;
+  background: #f3f4f5;
+}
+.transcript-paragraph.excluded-from-output:hover,
+.transcript-paragraph.excluded-from-output:focus-within { opacity: 0.72; }
+
+.paragraph-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 4px;
+}
+
+.paragraph-speaker-swatch {
+  width: 7px;
+  height: 7px;
+  background: var(--speaker-color);
+  border-radius: 50%;
+}
 
 .paragraph-speaker {
   min-height: 0;
@@ -35,6 +54,67 @@
 
 .paragraph-speaker:hover,
 .paragraph-speaker:focus { background: #f0f4f7; outline: none; }
+
+.paragraph-actions {
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
+  opacity: 0.55;
+}
+
+.transcript-paragraph:hover .paragraph-actions,
+.transcript-paragraph:focus-within .paragraph-actions { opacity: 1; }
+
+.paragraph-action-button,
+.inline-action-button {
+  padding: 3px 7px;
+  color: var(--muted);
+  background: #f5f7f9;
+  border: 1px solid #d8e0e6;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+.paragraph-action-button:hover,
+.inline-action-button:hover:not(:disabled) {
+  color: var(--blue);
+  background: var(--blue-soft);
+  border-color: #b9ccda;
+}
+
+.inline-action-button:disabled { opacity: 0.48; cursor: default; }
+
+.paragraph-note {
+  margin: 4px 0 7px 14px;
+  padding: 7px 9px;
+  background: #fff9e9;
+  border: 1px solid #ead7a5;
+  border-radius: 7px;
+}
+
+.paragraph-note label {
+  display: grid;
+  gap: 4px;
+  color: #6e5720;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.paragraph-note textarea {
+  width: 100%;
+  min-height: 54px;
+  padding: 6px 8px;
+  resize: vertical;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid #d8c99e;
+  border-radius: 5px;
+  font: inherit;
+  font-weight: 400;
+}
+
+.paragraph-note label span { color: #8a7951; font-weight: 400; }
 .paragraph-body { color: var(--ink); font-size: 0.98rem; line-height: 1.72; }
 
 .paragraph-segment.segment {
@@ -52,6 +132,7 @@
   box-shadow: 0 0 0 2px var(--blue-soft);
   border-radius: 3px;
 }
+
 .paragraph-segment.segment.changed:not(.active) .segment-inline-text {
   background: #fff8df;
   box-shadow: 0 0 0 2px #fff8df;
@@ -60,14 +141,14 @@
 
 .segment-tools {
   position: relative;
-  top: -0.15em;
+  top: -0.2em;
   display: inline-flex;
   width: 0.72em;
-  height: 1.15em;
+  height: 1.5em;
   margin: 0 0.08em 0 0.02em;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   vertical-align: middle;
 }
 
@@ -75,7 +156,6 @@
 .segment-menu-button {
   display: block;
   width: 100%;
-  height: 0.56em;
   margin: 0;
   padding: 0;
   background: transparent;
@@ -84,32 +164,40 @@
 }
 
 .audio-anchor {
+  height: 0.5em;
   color: var(--blue);
   opacity: 0.3;
   font-size: 0.46rem;
   line-height: 0.5em;
+  transform: translateY(-0.08em);
   transition: opacity 100ms ease, transform 100ms ease;
 }
 
 .audio-anchor:hover,
 .audio-anchor:focus-visible,
-.paragraph-segment.active .audio-anchor { opacity: 0.95; transform: scale(1.18); }
+.paragraph-segment.active .audio-anchor {
+  opacity: 0.95;
+  transform: translateY(-0.08em) scale(1.18);
+}
 
 .segment-menu-button {
+  height: 0.68em;
   color: var(--muted);
   border-radius: 2px;
   opacity: 0.22;
-  font-size: 0.62rem;
-  line-height: 0.5em;
+  font-size: 0.64rem;
+  line-height: 0.68em;
+  transform: translateY(0.3em);
   transition: opacity 100ms ease, background 100ms ease;
 }
 
 .paragraph-segment:hover .segment-menu-button,
 .segment-menu-button:focus-visible,
 .segment-menu-button[aria-expanded="true"] { opacity: 0.72; }
-.segment-menu-button:hover { opacity: 1; background: #e8edf1; }
 
+.segment-menu-button:hover { opacity: 1; background: #e8edf1; }
 .segment-inline-text { padding: 0.02em 0; outline: none; white-space: pre-wrap; }
+
 .segment-inline-text:focus {
   background: #f5f9fc;
   box-shadow: 0 0 0 2px #e7f0f7;
@@ -117,15 +205,14 @@
 }
 
 .inline-segment-controls {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 5px);
-  left: 0;
+  position: fixed;
+  z-index: 1000;
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
   width: max-content;
-  max-width: min(620px, calc(100vw - 48px));
+  max-width: calc(100vw - 16px);
   padding: 7px 9px;
   color: var(--ink);
   background: #fff;
@@ -136,9 +223,16 @@
   line-height: 1.3;
 }
 
-.inline-segment-controls label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.inline-segment-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
 .inline-speaker-select { min-height: 28px; padding: 3px 7px; }
 .inline-check input { margin: 0; }
+
 .inline-controls-close {
   width: 24px;
   height: 24px;
@@ -150,13 +244,16 @@
   font-size: 1rem;
   line-height: 1;
 }
+
 .inline-controls-close:hover { color: var(--red); background: #fff0f1; }
 
 .paragraph-speaker-row { align-items: start; }
 .speaker-jump-controls {
   grid-column: 2;
   display: flex;
+  align-items: center;
   gap: 4px;
+  width: 100%;
   margin-top: 2px;
 }
 
@@ -179,6 +276,15 @@
   border-color: #b9ccda;
 }
 
+.speaker-jump-status {
+  margin-left: auto;
+  padding-left: 6px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .content-grid.speakers-collapsed .speaker-jump-controls { display: none; }
 
 @media (max-height: 720px) {
@@ -187,5 +293,7 @@
 
 @media (max-width: 820px) {
   .speaker-panel { position: static; max-height: min(42vh, 420px); overflow-y: auto; }
-  .inline-segment-controls { flex-wrap: wrap; }
+  .paragraph-heading { flex-wrap: wrap; }
+  .paragraph-actions { width: 100%; margin-left: 14px; }
+  .inline-segment-controls { max-width: calc(100vw - 12px); }
 }
