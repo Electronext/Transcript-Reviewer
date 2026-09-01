@@ -1,8 +1,5 @@
 "use strict";
 
-// Paragraph-oriented presentation layer. aTrain segments remain the canonical
-// timing/edit units; consecutive segments are simply flowed together for review.
-
 function segmentMatchesCurrentFilters(segment) {
   const query = elements.searchInput.value.trim().toLocaleLowerCase();
   const speakerFilter = elements.speakerFilter.value;
@@ -75,7 +72,6 @@ function activeSourceIndex() {
 
 function revealSegment(segment) {
   if (!segment) return;
-
   let token = document.querySelector(`.segment[data-segment-id="${CSS.escape(String(segment.id))}"]`);
   if (!token) {
     elements.searchInput.value = "";
@@ -84,7 +80,6 @@ function revealSegment(segment) {
     renderParagraphs();
     token = document.querySelector(`.segment[data-segment-id="${CSS.escape(String(segment.id))}"]`);
   }
-
   state.activeId = segment.id;
   document.querySelectorAll(".paragraph-segment.active").forEach((item) => item.classList.remove("active"));
   if (!token) return;
@@ -100,8 +95,7 @@ function jumpToNextSpeakerParagraph(speakerId) {
   const starts = paragraphStartsForSpeaker(speakerId);
   if (!starts.length) return;
   const activeIndex = activeSourceIndex();
-  const target = starts.find((segment) => segmentSourceIndex(segment) > activeIndex) || starts[0];
-  revealSegment(target);
+  revealSegment(starts.find((segment) => segmentSourceIndex(segment) > activeIndex) || starts[0]);
 }
 
 function jumpToPreviousSpeakerParagraph(speakerId) {
@@ -133,11 +127,9 @@ function renderParagraphSpeakers() {
     const speaker = state.project.speakers[id];
     const row = document.createElement("div");
     row.className = "speaker-row paragraph-speaker-row";
-
     const swatch = document.createElement("span");
     swatch.className = "speaker-swatch";
     swatch.style.backgroundColor = speaker.color;
-
     const input = document.createElement("input");
     input.className = "speaker-name";
     input.type = "text";
@@ -149,11 +141,9 @@ function renderParagraphSpeakers() {
       renderParagraphs();
       setDirty(true);
     });
-
     const sourceId = document.createElement("span");
     sourceId.className = "speaker-id";
     sourceId.textContent = id === Core.UNASSIGNED ? "No aTrain speaker assigned" : id;
-
     const navigation = document.createElement("div");
     navigation.className = "speaker-jump-controls";
     navigation.append(
@@ -161,7 +151,6 @@ function renderParagraphSpeakers() {
       speakerNavButton("First", `First ${speaker.name} paragraph`, () => jumpToFirstSpeakerParagraph(id)),
       speakerNavButton("›", `Next ${speaker.name} paragraph`, () => jumpToNextSpeakerParagraph(id))
     );
-
     row.append(swatch, input, sourceId, navigation);
     elements.speakerList.append(row);
   });
@@ -172,27 +161,23 @@ function positionSegmentControls(controls, anchor) {
   controls.style.top = "0px";
   controls.style.visibility = "hidden";
   controls.classList.remove("hidden");
-
   const margin = 8;
   const anchorRect = anchor.getBoundingClientRect();
   const controlsRect = controls.getBoundingClientRect();
   const maxLeft = Math.max(margin, window.innerWidth - controlsRect.width - margin);
   const left = Math.min(Math.max(margin, anchorRect.left), maxLeft);
-
   let top = anchorRect.bottom + 5;
   if (top + controlsRect.height > window.innerHeight - margin) {
     top = Math.max(margin, anchorRect.top - controlsRect.height - 5);
   }
-
   controls.style.left = `${left}px`;
   controls.style.top = `${top}px`;
   controls.style.visibility = "visible";
 }
 
-function makeSegmentControls(segment, token) {
+function makeSegmentControls(segment) {
   const controls = document.createElement("span");
   controls.className = "inline-segment-controls hidden";
-
   const previousIndex = state.project.segments.findIndex((item) => String(item.id) === String(segment.id)) - 1;
   const previous = previousIndex >= 0 ? state.project.segments[previousIndex] : null;
 
@@ -214,9 +199,6 @@ function makeSegmentControls(segment, token) {
     paragraphButton.textContent = !previous ? "Paragraph start" : "Speaker change starts paragraph";
   } else {
     paragraphButton.textContent = segment.paragraphBreakBefore ? "Join previous paragraph" : "Start paragraph";
-    paragraphButton.title = segment.paragraphBreakBefore
-      ? "Remove the paragraph break before this segment."
-      : "Start a new paragraph before this segment.";
     paragraphButton.addEventListener("click", () => {
       segment.paragraphBreakBefore = !segment.paragraphBreakBefore;
       markSegmentChanged(segment);
@@ -258,7 +240,6 @@ function makeSegmentToken(segment) {
 
   const tools = document.createElement("span");
   tools.className = "segment-tools";
-
   const timestamp = document.createElement("button");
   timestamp.type = "button";
   timestamp.className = "audio-anchor";
@@ -269,7 +250,6 @@ function makeSegmentToken(segment) {
     event.stopPropagation();
     playFrom(segment.start);
   });
-
   const menu = document.createElement("button");
   menu.type = "button";
   menu.className = "segment-menu-button";
@@ -299,7 +279,7 @@ function makeSegmentToken(segment) {
   });
 
   token.append(tools, text);
-  const controls = makeSegmentControls(segment, token);
+  const controls = makeSegmentControls(segment);
   menu.addEventListener("click", (event) => {
     event.stopPropagation();
     document.querySelectorAll(".inline-segment-controls:not(.hidden)").forEach((panel) => {
@@ -317,6 +297,9 @@ function makeParagraph(paragraph) {
   const article = document.createElement("article");
   article.className = "transcript-paragraph";
   article.style.setProperty("--speaker-color", state.project.speakers[paragraph.speakerId]?.color || "#657786");
+  const anchorSegment = paragraph.segments[0];
+  const fullyExcluded = paragraph.segments.every((segment) => segment.excludedFromOutput);
+  if (fullyExcluded) article.classList.add("excluded-from-output");
 
   const heading = document.createElement("header");
   heading.className = "paragraph-heading";
@@ -332,13 +315,63 @@ function makeParagraph(paragraph) {
     renderSegments();
   }, "paragraph-speaker");
   speaker.title = "Change the speaker for this whole paragraph";
-  heading.append(swatch, speaker);
+
+  const actions = document.createElement("div");
+  actions.className = "paragraph-actions";
+  const excludeButton = document.createElement("button");
+  excludeButton.type = "button";
+  excludeButton.className = "paragraph-action-button";
+  excludeButton.textContent = fullyExcluded ? "Restore to output" : "Hide from output";
+  excludeButton.title = fullyExcluded
+    ? "Include this paragraph in human-facing transcript and final outputs again."
+    : "Keep this paragraph for provenance and later-stage context, but exclude it from human-facing transcript and final outputs.";
+  excludeButton.addEventListener("click", () => {
+    paragraph.segments.forEach((segment) => {
+      segment.excludedFromOutput = !fullyExcluded;
+      segment.changed = true;
+    });
+    setDirty(true);
+    renderSegments();
+  });
+
+  const noteButton = document.createElement("button");
+  noteButton.type = "button";
+  noteButton.className = "paragraph-action-button";
+  const anchorKey = String(anchorSegment.id);
+  const existingNote = state.project.stageNotes?.[anchorKey] || "";
+  noteButton.textContent = existingNote ? "Edit note" : "Add note";
+  noteButton.title = "Add context or instructions for the next processing stage. This note is never part of the transcript or final output.";
+  actions.append(excludeButton, noteButton);
+  heading.append(swatch, speaker, actions);
+
+  const noteEditor = document.createElement("div");
+  noteEditor.className = `paragraph-note${existingNote ? "" : " hidden"}`;
+  const noteLabel = document.createElement("label");
+  noteLabel.textContent = "Next-stage note / instruction";
+  const noteInput = document.createElement("textarea");
+  noteInput.rows = 2;
+  noteInput.placeholder = "Extra context or instruction for the next processing stage…";
+  noteInput.value = existingNote;
+  noteInput.addEventListener("input", () => {
+    if (!state.project.stageNotes) state.project.stageNotes = {};
+    state.project.stageNotes[anchorKey] = noteInput.value;
+    noteButton.textContent = Core.cleanText(noteInput.value) ? "Edit note" : "Add note";
+    setDirty(true);
+  });
+  const noteHint = document.createElement("span");
+  noteHint.textContent = "Context only — not included in transcript or final output.";
+  noteLabel.append(noteInput, noteHint);
+  noteEditor.append(noteLabel);
+  noteButton.addEventListener("click", () => {
+    noteEditor.classList.toggle("hidden");
+    if (!noteEditor.classList.contains("hidden")) noteInput.focus();
+  });
 
   const body = document.createElement("div");
   body.className = "paragraph-body";
   paragraph.segments.forEach((segment) => body.append(makeSegmentToken(segment), document.createTextNode(" ")));
 
-  article.append(heading, body);
+  article.append(heading, noteEditor, body);
   return article;
 }
 
