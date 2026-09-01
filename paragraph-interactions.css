@@ -45,11 +45,10 @@
 }
 
 /* Review state is carried primarily by text colour rather than background
-   highlighting. Unreviewed transcript remains conspicuously blue; reviewed
-   transcript returns to normal ink. This also avoids stale-looking highlights
-   after a paragraph is toggled back to unreviewed. */
+   highlighting. Unreviewed transcript uses the same restrained blue as the
+   primary Play control; reviewed transcript returns to normal ink. */
 .paragraph-segment .segment-inline-text {
-  color: #10a7c5;
+  color: #174f7d;
 }
 
 .paragraph-segment.reviewed .segment-inline-text {
