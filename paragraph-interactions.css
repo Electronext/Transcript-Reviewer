@@ -44,34 +44,30 @@
   cursor: default;
 }
 
-/* Individual passage review is deliberately subtle; paragraph-level state is
-   the primary review affordance. */
+/* Review state is carried primarily by text colour rather than background
+   highlighting. Unreviewed transcript remains conspicuously blue; reviewed
+   transcript returns to normal ink. This also avoids stale-looking highlights
+   after a paragraph is toggled back to unreviewed. */
+.paragraph-segment .segment-inline-text {
+  color: #10a7c5;
+}
+
 .paragraph-segment.reviewed .segment-inline-text {
-  text-decoration-line: underline;
-  text-decoration-style: dotted;
-  text-decoration-thickness: 1px;
-  text-decoration-color: #9eabb4;
-  text-underline-offset: 0.19em;
+  color: var(--ink);
 }
 
-.transcript-paragraph.reviewed-paragraph {
-  box-shadow: inset 0 0 0 1px #d9e4dc;
-}
-
-.transcript-paragraph.partly-reviewed-paragraph {
-  box-shadow: inset 0 0 0 1px #e7e2d2;
-}
-
+/* The paragraph button remains a secondary confirmation of review state. */
 .paragraph-review-button.reviewed {
   color: #446c52;
   background: #edf5ef;
   border-color: #c7d9cc;
 }
 
-/* Hidden/output-excluded material stays visually quiet even when it has been
-   reviewed. */
+/* Hidden/output-excluded material stays visually quiet regardless of review
+   state; paragraph-level opacity remains the primary exclusion indication. */
+.transcript-paragraph.excluded-from-output .paragraph-segment .segment-inline-text,
 .transcript-paragraph.excluded-from-output .paragraph-segment.reviewed .segment-inline-text {
-  text-decoration-color: #c0c5c8;
+  color: var(--muted);
 }
 
 /* Native right-click replacement for passage-level speaker/review operations. */
