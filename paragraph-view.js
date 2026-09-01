@@ -180,80 +180,82 @@ function renderParagraphSpeakers() {
   });
 }
 
-function positionSegmentControls(controls, anchor) {
-  controls.style.left = "0px";
-  controls.style.top = "0px";
-  controls.style.visibility = "hidden";
-  controls.classList.remove("hidden");
-  const margin = 8;
-  const anchorRect = anchor.getBoundingClientRect();
-  const controlsRect = controls.getBoundingClientRect();
-  const maxLeft = Math.max(margin, window.innerWidth - controlsRect.width - margin);
-  const left = Math.min(Math.max(margin, anchorRect.left), maxLeft);
-  let top = anchorRect.bottom + 5;
-  if (top + controlsRect.height > window.innerHeight - margin) {
-    top = Math.max(margin, anchorRect.top - controlsRect.height - 5);
-  }
-  controls.style.left = `${left}px`;
-  controls.style.top = `${top}px`;
-  controls.style.visibility = "visible";
+function closePassageMenu() {
+  document.querySelectorAll(".passage-context-menu").forEach((menu) => menu.remove());
 }
 
-function makeSegmentControls(segment) {
-  const controls = document.createElement("span");
-  controls.className = "inline-segment-controls hidden";
-  const previousIndex = state.project.segments.findIndex((item) => String(item.id) === String(segment.id)) - 1;
-  const previous = previousIndex >= 0 ? state.project.segments[previousIndex] : null;
+function positionPopup(menu, x, y) {
+  const margin = 8;
+  menu.style.left = "0px";
+  menu.style.top = "0px";
+  menu.style.visibility = "hidden";
+  document.body.append(menu);
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(Math.max(margin, x), Math.max(margin, window.innerWidth - rect.width - margin));
+  const top = Math.min(Math.max(margin, y), Math.max(margin, window.innerHeight - rect.height - margin));
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  menu.style.visibility = "visible";
+}
+
+function openPassageMenu(segment, x, y) {
+  closePassageMenu();
+  setActiveSegment(segment.id, false);
+  updateSpeakerJumpStatuses();
+
+  const menu = document.createElement("div");
+  menu.className = "passage-context-menu";
+  menu.setAttribute("role", "menu");
+
+  const heading = document.createElement("div");
+  heading.className = "context-menu-heading";
+  heading.textContent = `Passage · ${Core.formatClock(segment.start, false)}`;
 
   const speakerLabel = document.createElement("label");
-  speakerLabel.textContent = "Speaker ";
+  speakerLabel.className = "context-menu-row";
+  speakerLabel.append(document.createTextNode("Speaker"));
   const speaker = makeSpeakerSelect(segment.speakerId, (speakerId) => {
     segment.speakerId = speakerId;
     markSegmentChanged(segment);
-    renderSegments();
+    closePassageMenu();
+    renderParagraphs();
     renderParagraphSpeakers();
-  }, "inline-speaker-select");
+  }, "context-speaker-select");
   speakerLabel.append(speaker);
 
-  const paragraphButton = document.createElement("button");
-  paragraphButton.type = "button";
-  paragraphButton.className = "inline-action-button";
-  const alreadyBrokenBySpeaker = !previous || previous.speakerId !== segment.speakerId;
-  if (alreadyBrokenBySpeaker) {
-    paragraphButton.disabled = true;
-    paragraphButton.textContent = !previous ? "Paragraph start" : "Speaker change starts paragraph";
-  } else {
-    paragraphButton.textContent = segment.paragraphBreakBefore ? "Join previous paragraph" : "Start paragraph";
-    paragraphButton.addEventListener("click", () => {
-      segment.paragraphBreakBefore = !segment.paragraphBreakBefore;
-      markSegmentChanged(segment);
-      renderSegments();
-      renderParagraphSpeakers();
-    });
-  }
-
   const reviewedLabel = document.createElement("label");
-  reviewedLabel.className = "inline-check";
+  reviewedLabel.className = "context-menu-check";
   const reviewed = document.createElement("input");
   reviewed.type = "checkbox";
   reviewed.checked = segment.reviewed;
   reviewed.addEventListener("change", () => {
     segment.reviewed = reviewed.checked;
     markSegmentChanged(segment);
-    if (elements.reviewFilter.value) renderSegments();
+    closePassageMenu();
+    renderParagraphs();
   });
-  reviewedLabel.append(reviewed, document.createTextNode("Reviewed"));
+  reviewedLabel.append(reviewed, document.createTextNode("Passage reviewed"));
 
-  const close = document.createElement("button");
-  close.type = "button";
-  close.className = "inline-controls-close";
-  close.textContent = "×";
-  close.title = "Close segment controls";
-  close.addEventListener("click", () => controls.classList.add("hidden"));
+  menu.append(heading, speakerLabel, reviewedLabel);
 
-  controls.append(speakerLabel, paragraphButton, reviewedLabel, close);
-  document.body.append(controls);
-  return controls;
+  const index = segmentSourceIndex(segment);
+  const previous = index > 0 ? state.project.segments[index - 1] : null;
+  if (segment.paragraphBreakBefore && previous && previous.speakerId === segment.speakerId) {
+    const join = document.createElement("button");
+    join.type = "button";
+    join.className = "context-menu-action";
+    join.textContent = "Join previous paragraph";
+    join.addEventListener("click", () => {
+      segment.paragraphBreakBefore = false;
+      markSegmentChanged(segment);
+      closePassageMenu();
+      renderParagraphs();
+      renderParagraphSpeakers();
+    });
+    menu.append(join);
+  }
+
+  positionPopup(menu, x, y);
 }
 
 function makeSegmentToken(segment) {
@@ -262,10 +264,12 @@ function makeSegmentToken(segment) {
   token.dataset.segmentId = String(segment.id);
   token.style.setProperty("--speaker-color", state.project.speakers[segment.speakerId]?.color || "#657786");
   if (segment.changed) token.classList.add("changed");
+  if (segment.reviewed) token.classList.add("reviewed");
   if (String(segment.id) === String(state.activeId)) token.classList.add("active");
 
   const tools = document.createElement("span");
   tools.className = "segment-tools";
+
   const timestamp = document.createElement("button");
   timestamp.type = "button";
   timestamp.className = "audio-anchor";
@@ -276,14 +280,28 @@ function makeSegmentToken(segment) {
     event.stopPropagation();
     playFrom(segment.start);
   });
-  const menu = document.createElement("button");
-  menu.type = "button";
-  menu.className = "segment-menu-button";
-  menu.textContent = "⋯";
-  menu.title = "Segment options";
-  menu.setAttribute("aria-label", `Options for segment at ${Core.formatClock(segment.start, false)}`);
-  menu.setAttribute("aria-expanded", "false");
-  tools.append(timestamp, menu);
+
+  const split = document.createElement("button");
+  split.type = "button";
+  split.className = "paragraph-split-button";
+  split.textContent = "↵";
+  split.title = "Start a new paragraph here";
+  split.setAttribute("aria-label", split.title);
+  const index = segmentSourceIndex(segment);
+  const previous = index > 0 ? state.project.segments[index - 1] : null;
+  const alreadyStartsParagraph = !previous
+    || previous.speakerId !== segment.speakerId
+    || segment.paragraphBreakBefore;
+  split.disabled = alreadyStartsParagraph;
+  split.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (split.disabled) return;
+    segment.paragraphBreakBefore = true;
+    markSegmentChanged(segment);
+    renderParagraphs();
+    renderParagraphSpeakers();
+  });
+  tools.append(timestamp, split);
 
   const text = document.createElement("span");
   text.className = "segment-inline-text";
@@ -291,7 +309,7 @@ function makeSegmentToken(segment) {
   text.spellcheck = true;
   text.textContent = segment.text;
   text.setAttribute("role", "textbox");
-  text.setAttribute("aria-label", `Transcript segment at ${Core.formatClock(segment.start, false)}`);
+  text.setAttribute("aria-label", `Editable transcript passage at ${Core.formatClock(segment.start, false)}`);
   text.addEventListener("focus", () => {
     setActiveSegment(segment.id, false);
     updateSpeakerJumpStatuses();
@@ -307,18 +325,12 @@ function makeSegmentToken(segment) {
     text.textContent = cleaned;
   });
 
-  token.append(tools, text);
-  const controls = makeSegmentControls(segment);
-  menu.addEventListener("click", (event) => {
-    event.stopPropagation();
-    document.querySelectorAll(".inline-segment-controls:not(.hidden)").forEach((panel) => {
-      if (panel !== controls) panel.classList.add("hidden");
-    });
-    const opening = controls.classList.contains("hidden");
-    if (opening) positionSegmentControls(controls, menu);
-    else controls.classList.add("hidden");
-    menu.setAttribute("aria-expanded", String(opening));
+  token.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    openPassageMenu(segment, event.clientX, event.clientY);
   });
+
+  token.append(tools, text);
   return token;
 }
 
@@ -328,7 +340,11 @@ function makeParagraph(paragraph) {
   article.style.setProperty("--speaker-color", state.project.speakers[paragraph.speakerId]?.color || "#657786");
   const anchorSegment = paragraph.segments[0];
   const fullyExcluded = paragraph.segments.every((segment) => segment.excludedFromOutput);
+  const reviewedCount = paragraph.segments.filter((segment) => segment.reviewed).length;
+  const fullyReviewed = reviewedCount === paragraph.segments.length;
   if (fullyExcluded) article.classList.add("excluded-from-output");
+  if (fullyReviewed) article.classList.add("reviewed-paragraph");
+  else if (reviewedCount) article.classList.add("partly-reviewed-paragraph");
 
   const heading = document.createElement("header");
   heading.className = "paragraph-heading";
@@ -341,13 +357,14 @@ function makeParagraph(paragraph) {
     });
     setDirty(true);
     updateProgress();
-    renderSegments();
+    renderParagraphs();
     renderParagraphSpeakers();
   }, "paragraph-speaker");
   speaker.title = "Change the speaker for this whole paragraph";
 
   const actions = document.createElement("div");
   actions.className = "paragraph-actions";
+
   const excludeButton = document.createElement("button");
   excludeButton.type = "button";
   excludeButton.className = "paragraph-action-button";
@@ -361,7 +378,7 @@ function makeParagraph(paragraph) {
       segment.changed = true;
     });
     setDirty(true);
-    renderSegments();
+    renderParagraphs();
   });
 
   const noteButton = document.createElement("button");
@@ -371,7 +388,30 @@ function makeParagraph(paragraph) {
   const existingNote = state.project.stageNotes?.[anchorKey] || "";
   noteButton.textContent = existingNote ? "Edit note" : "Add note";
   noteButton.title = "Add context or instructions for the next processing stage. This note is never part of the transcript or final output.";
-  actions.append(excludeButton, noteButton);
+
+  const reviewButton = document.createElement("button");
+  reviewButton.type = "button";
+  reviewButton.className = `paragraph-action-button paragraph-review-button${fullyReviewed ? " reviewed" : ""}`;
+  reviewButton.textContent = fullyReviewed
+    ? "Reviewed ✓"
+    : reviewedCount
+      ? `Review ${reviewedCount}/${paragraph.segments.length}`
+      : "Review";
+  reviewButton.title = fullyReviewed
+    ? "Mark this paragraph unreviewed."
+    : "Mark every passage in this paragraph reviewed.";
+  reviewButton.addEventListener("click", () => {
+    const nextReviewed = !fullyReviewed;
+    paragraph.segments.forEach((segment) => {
+      segment.reviewed = nextReviewed;
+      segment.changed = true;
+    });
+    setDirty(true);
+    updateProgress();
+    renderParagraphs();
+  });
+
+  actions.append(excludeButton, noteButton, reviewButton);
   heading.append(swatch, speaker, actions);
 
   const noteEditor = document.createElement("div");
@@ -407,7 +447,7 @@ function makeParagraph(paragraph) {
 
 function renderParagraphs() {
   if (!state.project) return;
-  document.querySelectorAll(".inline-segment-controls").forEach((panel) => panel.remove());
+  closePassageMenu();
   const visible = state.project.segments.filter(segmentMatchesCurrentFilters);
   const paragraphs = makeParagraphs(visible);
   const fragment = document.createDocumentFragment();
@@ -430,12 +470,20 @@ fitAllTextareas = () => {};
 elements.searchInput.addEventListener("input", renderParagraphs);
 elements.speakerFilter.addEventListener("change", renderParagraphs);
 elements.reviewFilter.addEventListener("change", renderParagraphs);
-window.addEventListener("resize", () => {
-  document.querySelectorAll(".inline-segment-controls:not(.hidden)").forEach((panel) => panel.classList.add("hidden"));
-});
-window.addEventListener("scroll", () => {
-  document.querySelectorAll(".inline-segment-controls:not(.hidden)").forEach((panel) => panel.classList.add("hidden"));
+
+// The legacy application used Space as a global play/pause shortcut. The
+// paragraph editor uses ordinary contenteditable text, so Space must remain a
+// normal editing key. Capture it before the legacy handler; do not prevent the
+// browser's default action, so spaces insert normally wherever focus is.
+window.addEventListener("keydown", (event) => {
+  if (event.code === "Space") event.stopImmediatePropagation();
 }, true);
+
+document.addEventListener("pointerdown", (event) => {
+  if (!event.target.closest(".passage-context-menu")) closePassageMenu();
+});
+window.addEventListener("resize", closePassageMenu);
+window.addEventListener("scroll", closePassageMenu, true);
 
 if (state.project) {
   renderParagraphSpeakers();
