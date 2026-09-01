@@ -20,8 +20,12 @@ function segmentMatchesCurrentFilters(segment) {
 function makeParagraphs(segments) {
   const paragraphs = [];
   let current = null;
+  let previousSourceIndex = -2;
   segments.forEach((segment) => {
+    const sourceIndex = state.project.segments.indexOf(segment);
+    const isAdjacent = sourceIndex === previousSourceIndex + 1;
     const startsNew = !current
+      || !isAdjacent
       || current.speakerId !== segment.speakerId
       || segment.paragraphBreakBefore;
     if (startsNew) {
@@ -29,6 +33,7 @@ function makeParagraphs(segments) {
       paragraphs.push(current);
     }
     current.segments.push(segment);
+    previousSourceIndex = sourceIndex;
   });
   return paragraphs;
 }
@@ -142,8 +147,8 @@ function makeSegmentToken(segment) {
   });
   text.addEventListener("blur", () => {
     const cleaned = Core.cleanText(text.textContent);
-    if (cleaned !== segment.text) segment.text = cleaned;
-    text.textContent = segment.text;
+    segment.text = cleaned;
+    text.textContent = cleaned;
   });
 
   const menu = document.createElement("button");
@@ -152,6 +157,7 @@ function makeSegmentToken(segment) {
   menu.textContent = "⋯";
   menu.title = "Segment options";
   menu.setAttribute("aria-label", `Options for segment at ${Core.formatClock(segment.start, false)}`);
+  menu.setAttribute("aria-expanded", "false");
 
   token.append(timestamp, text, menu);
   const controls = makeSegmentControls(segment, token);
@@ -161,6 +167,7 @@ function makeSegmentToken(segment) {
       if (panel !== controls) panel.classList.add("hidden");
     });
     controls.classList.toggle("hidden");
+    menu.setAttribute("aria-expanded", String(!controls.classList.contains("hidden")));
   });
   return token;
 }
