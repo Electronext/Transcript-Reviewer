@@ -44,6 +44,8 @@
       ? reviewer.speakers : {};
     const reviewedIds = new Set(Array.isArray(reviewer.reviewed_segment_ids)
       ? reviewer.reviewed_segment_ids.map(String) : []);
+    const paragraphBreakIds = new Set(Array.isArray(reviewer.paragraph_break_segment_ids)
+      ? reviewer.paragraph_break_segment_ids.map(String) : []);
     const ids = [];
 
     raw.segments.forEach((segment) => {
@@ -66,17 +68,23 @@
       };
     });
 
-    const segments = raw.segments.map((segment, index) => ({
-      source: segment,
-      id: segment.id == null ? index + 1 : segment.id,
-      start: Number(segment.start) || 0,
-      end: Number(segment.end) || Number(segment.start) || 0,
-      text: cleanText(segment.text),
-      speakerId: segment.speaker == null || segment.speaker === ""
-        ? UNASSIGNED : String(segment.speaker),
-      reviewed: reviewedIds.has(String(segment.id == null ? index + 1 : segment.id)),
-      changed: false
-    }));
+    const segments = raw.segments.map((segment, index) => {
+      const id = segment.id == null ? index + 1 : segment.id;
+      return {
+        source: segment,
+        id,
+        start: Number(segment.start) || 0,
+        end: Number(segment.end) || Number(segment.start) || 0,
+        text: cleanText(segment.text),
+        speakerId: segment.speaker == null || segment.speaker === ""
+          ? UNASSIGNED : String(segment.speaker),
+        reviewed: reviewedIds.has(String(id)),
+        paragraphBreakBefore: paragraphBreakIds.has(String(id)),
+        changed: false
+      };
+    });
+
+    if (segments.length) segments[0].paragraphBreakBefore = false;
 
     return {
       raw,
@@ -117,14 +125,18 @@
     });
 
     copy.reviewer = {
+      ...(copy.reviewer && typeof copy.reviewer === "object" ? copy.reviewer : {}),
       schema: "atrain-transcript-reviewer",
-      schema_version: 1,
+      schema_version: 2,
       project_id: project.projectId,
       updated_at: options?.updatedAt || new Date().toISOString(),
       speakers,
       reviewed_segment_ids: project.segments.filter((segment) => segment.reviewed).map((segment) => segment.id),
+      paragraph_break_segment_ids: project.segments
+        .filter((segment, index) => index > 0 && segment.paragraphBreakBefore)
+        .map((segment) => segment.id),
       srt_includes_speakers: options?.speakerInSrt !== false,
-      note: "Segment text and speaker fields are canonical. Original word timings are retained; word-level text is not reconstructed after textual corrections."
+      note: "Segment text and speaker fields are canonical. Paragraph boundaries are reviewer metadata. Original word timings are retained; word-level text is not reconstructed after textual corrections."
     };
     return copy;
   }
@@ -145,18 +157,16 @@
   function groupedBlocks(project, withTimestamps, maxqda) {
     const blocks = [];
     let current = null;
-    project.segments.forEach((segment) => {
+    project.segments.forEach((segment, index) => {
       const name = speakerName(project, segment.speakerId);
-      if (!current || current.name !== name) {
+      const forcedBreak = index > 0 && segment.paragraphBreakBefore;
+      if (!current || current.name !== name || forcedBreak) {
         current = { name, lines: [] };
         blocks.push(current);
       }
       const text = cleanText(segment.text);
-      if (withTimestamps) {
-        current.lines.push(`[${formatClock(segment.start, false)}] - ${text}`);
-      } else {
-        current.lines.push(text);
-      }
+      if (withTimestamps) current.lines.push(`[${formatClock(segment.start, false)}] - ${text}`);
+      else current.lines.push(text);
     });
 
     return blocks.map((block) => {
@@ -180,9 +190,10 @@
   function buildMarkdownTranscript(project) {
     const blocks = [];
     let current = null;
-    project.segments.forEach((segment) => {
+    project.segments.forEach((segment, index) => {
       const name = speakerName(project, segment.speakerId);
-      if (!current || current.name !== name) {
+      const forcedBreak = index > 0 && segment.paragraphBreakBefore;
+      if (!current || current.name !== name || forcedBreak) {
         current = { name, rows: [] };
         blocks.push(current);
       }
@@ -191,7 +202,7 @@
     return [
       `# ${sourceTitle(project.projectId)}`,
       "",
-      ...blocks.flatMap((block) => [`## ${block.name}`, "", ...block.rows, ""])
+      ...blocks.flatMap((block) => [`## ${block.name}`, "", block.rows.join(" "), ""])
     ].join("\n").trimEnd() + "\n";
   }
 
