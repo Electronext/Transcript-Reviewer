@@ -70,6 +70,23 @@ function activeSourceIndex() {
   return state.project.segments.findIndex((segment) => String(segment.id) === String(state.activeId));
 }
 
+function speakerParagraphPosition(speakerId) {
+  const starts = paragraphStartsForSpeaker(speakerId);
+  const total = starts.length;
+  if (!total) return { current: 0, total: 0 };
+  const activeIndex = activeSourceIndex();
+  if (activeIndex < 0) return { current: 0, total };
+  const current = starts.filter((segment) => segmentSourceIndex(segment) <= activeIndex).length;
+  return { current, total };
+}
+
+function updateSpeakerJumpStatuses() {
+  document.querySelectorAll(".speaker-jump-status[data-speaker-id]").forEach((status) => {
+    const position = speakerParagraphPosition(status.dataset.speakerId);
+    status.textContent = `${position.current} of ${position.total}`;
+  });
+}
+
 function revealSegment(segment) {
   if (!segment) return;
   let token = document.querySelector(`.segment[data-segment-id="${CSS.escape(String(segment.id))}"]`);
@@ -85,6 +102,7 @@ function revealSegment(segment) {
   if (!token) return;
   token.classList.add("active");
   (token.closest(".transcript-paragraph") || token).scrollIntoView({ behavior: "smooth", block: "center" });
+  updateSpeakerJumpStatuses();
 }
 
 function jumpToFirstSpeakerParagraph(speakerId) {
@@ -146,10 +164,16 @@ function renderParagraphSpeakers() {
     sourceId.textContent = id === Core.UNASSIGNED ? "No aTrain speaker assigned" : id;
     const navigation = document.createElement("div");
     navigation.className = "speaker-jump-controls";
+    const status = document.createElement("span");
+    status.className = "speaker-jump-status";
+    status.dataset.speakerId = id;
+    const position = speakerParagraphPosition(id);
+    status.textContent = `${position.current} of ${position.total}`;
     navigation.append(
       speakerNavButton("‹", `Previous ${speaker.name} paragraph`, () => jumpToPreviousSpeakerParagraph(id)),
       speakerNavButton("First", `First ${speaker.name} paragraph`, () => jumpToFirstSpeakerParagraph(id)),
-      speakerNavButton("›", `Next ${speaker.name} paragraph`, () => jumpToNextSpeakerParagraph(id))
+      speakerNavButton("›", `Next ${speaker.name} paragraph`, () => jumpToNextSpeakerParagraph(id)),
+      status
     );
     row.append(swatch, input, sourceId, navigation);
     elements.speakerList.append(row);
@@ -187,6 +211,7 @@ function makeSegmentControls(segment) {
     segment.speakerId = speakerId;
     markSegmentChanged(segment);
     renderSegments();
+    renderParagraphSpeakers();
   }, "inline-speaker-select");
   speakerLabel.append(speaker);
 
@@ -203,6 +228,7 @@ function makeSegmentControls(segment) {
       segment.paragraphBreakBefore = !segment.paragraphBreakBefore;
       markSegmentChanged(segment);
       renderSegments();
+      renderParagraphSpeakers();
     });
   }
 
@@ -266,7 +292,10 @@ function makeSegmentToken(segment) {
   text.textContent = segment.text;
   text.setAttribute("role", "textbox");
   text.setAttribute("aria-label", `Transcript segment at ${Core.formatClock(segment.start, false)}`);
-  text.addEventListener("focus", () => setActiveSegment(segment.id, false));
+  text.addEventListener("focus", () => {
+    setActiveSegment(segment.id, false);
+    updateSpeakerJumpStatuses();
+  });
   text.addEventListener("input", () => {
     segment.text = text.textContent;
     markSegmentChanged(segment);
@@ -313,6 +342,7 @@ function makeParagraph(paragraph) {
     setDirty(true);
     updateProgress();
     renderSegments();
+    renderParagraphSpeakers();
   }, "paragraph-speaker");
   speaker.title = "Change the speaker for this whole paragraph";
 
@@ -386,6 +416,12 @@ function renderParagraphs() {
   elements.emptyFilterMessage.classList.toggle("hidden", visible.length !== 0);
 }
 
+const baseSetActiveSegment = setActiveSegment;
+setActiveSegment = function (id, scroll) {
+  baseSetActiveSegment(id, scroll);
+  updateSpeakerJumpStatuses();
+};
+
 renderSegments = renderParagraphs;
 renderSpeakers = renderParagraphSpeakers;
 fitTextarea = () => {};
@@ -404,4 +440,5 @@ window.addEventListener("scroll", () => {
 if (state.project) {
   renderParagraphSpeakers();
   renderParagraphs();
+  updateSpeakerJumpStatuses();
 }
