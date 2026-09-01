@@ -44,15 +44,30 @@
   cursor: default;
 }
 
-/* Review state is carried primarily by text colour rather than background
-   highlighting. Unreviewed transcript uses the same restrained blue as the
-   primary Play control; reviewed transcript returns to normal ink. */
+/* Review state is carried by text colour only. Unreviewed transcript uses the
+   same restrained blue as the primary Play control; reviewed transcript is
+   normal ink. Override the older active/changed background rules completely. */
 .paragraph-segment .segment-inline-text {
   color: #174f7d;
 }
 
 .paragraph-segment.reviewed .segment-inline-text {
   color: var(--ink);
+}
+
+.paragraph-segment.segment.active .segment-inline-text,
+.paragraph-segment.segment.changed .segment-inline-text,
+.paragraph-segment.segment.changed:not(.active) .segment-inline-text {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Editing itself still gets a very light focus cue, independent of review
+   state, so the caret location is easy to find. */
+.segment-inline-text:focus {
+  background: #f5f9fc;
+  box-shadow: 0 0 0 1px #e7f0f7;
+  border-radius: 2px;
 }
 
 /* The paragraph button remains a secondary confirmation of review state. */
@@ -67,6 +82,12 @@
 .transcript-paragraph.excluded-from-output .paragraph-segment .segment-inline-text,
 .transcript-paragraph.excluded-from-output .paragraph-segment.reviewed .segment-inline-text {
   color: var(--muted);
+}
+
+.transcript-paragraph.excluded-from-output .paragraph-segment.segment.active .segment-inline-text,
+.transcript-paragraph.excluded-from-output .paragraph-segment.segment.changed .segment-inline-text {
+  background: transparent;
+  box-shadow: none;
 }
 
 /* Native right-click replacement for passage-level speaker/review operations. */
