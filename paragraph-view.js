@@ -78,8 +78,6 @@ function revealSegment(segment) {
 
   let token = document.querySelector(`.segment[data-segment-id="${CSS.escape(String(segment.id))}"]`);
   if (!token) {
-    // Speaker navigation should reveal the contribution in conversational
-    // context rather than leave it hidden by an unrelated filter.
     elements.searchInput.value = "";
     elements.speakerFilter.value = "";
     elements.reviewFilter.value = "";
@@ -169,6 +167,28 @@ function renderParagraphSpeakers() {
   });
 }
 
+function positionSegmentControls(controls, anchor) {
+  controls.style.left = "0px";
+  controls.style.top = "0px";
+  controls.style.visibility = "hidden";
+  controls.classList.remove("hidden");
+
+  const margin = 8;
+  const anchorRect = anchor.getBoundingClientRect();
+  const controlsRect = controls.getBoundingClientRect();
+  const maxLeft = Math.max(margin, window.innerWidth - controlsRect.width - margin);
+  const left = Math.min(Math.max(margin, anchorRect.left), maxLeft);
+
+  let top = anchorRect.bottom + 5;
+  if (top + controlsRect.height > window.innerHeight - margin) {
+    top = Math.max(margin, anchorRect.top - controlsRect.height - 5);
+  }
+
+  controls.style.left = `${left}px`;
+  controls.style.top = `${top}px`;
+  controls.style.visibility = "visible";
+}
+
 function makeSegmentControls(segment, token) {
   const controls = document.createElement("span");
   controls.className = "inline-segment-controls hidden";
@@ -185,24 +205,24 @@ function makeSegmentControls(segment, token) {
   }, "inline-speaker-select");
   speakerLabel.append(speaker);
 
-  const paragraphLabel = document.createElement("label");
-  paragraphLabel.className = "inline-check";
-  const paragraphCheck = document.createElement("input");
-  paragraphCheck.type = "checkbox";
-  paragraphCheck.checked = Boolean(segment.paragraphBreakBefore);
+  const paragraphButton = document.createElement("button");
+  paragraphButton.type = "button";
+  paragraphButton.className = "inline-action-button";
   const alreadyBrokenBySpeaker = !previous || previous.speakerId !== segment.speakerId;
-  paragraphCheck.disabled = alreadyBrokenBySpeaker;
-  paragraphCheck.title = !previous
-    ? "The first segment always starts the transcript."
-    : alreadyBrokenBySpeaker
-      ? "A speaker change already starts a new paragraph."
+  if (alreadyBrokenBySpeaker) {
+    paragraphButton.disabled = true;
+    paragraphButton.textContent = !previous ? "Paragraph start" : "Speaker change starts paragraph";
+  } else {
+    paragraphButton.textContent = segment.paragraphBreakBefore ? "Join previous paragraph" : "Start paragraph";
+    paragraphButton.title = segment.paragraphBreakBefore
+      ? "Remove the paragraph break before this segment."
       : "Start a new paragraph before this segment.";
-  paragraphCheck.addEventListener("change", () => {
-    segment.paragraphBreakBefore = paragraphCheck.checked;
-    markSegmentChanged(segment);
-    renderSegments();
-  });
-  paragraphLabel.append(paragraphCheck, document.createTextNode("Start paragraph"));
+    paragraphButton.addEventListener("click", () => {
+      segment.paragraphBreakBefore = !segment.paragraphBreakBefore;
+      markSegmentChanged(segment);
+      renderSegments();
+    });
+  }
 
   const reviewedLabel = document.createElement("label");
   reviewedLabel.className = "inline-check";
@@ -223,8 +243,8 @@ function makeSegmentControls(segment, token) {
   close.title = "Close segment controls";
   close.addEventListener("click", () => controls.classList.add("hidden"));
 
-  controls.append(speakerLabel, paragraphLabel, reviewedLabel, close);
-  token.append(controls);
+  controls.append(speakerLabel, paragraphButton, reviewedLabel, close);
+  document.body.append(controls);
   return controls;
 }
 
@@ -285,8 +305,10 @@ function makeSegmentToken(segment) {
     document.querySelectorAll(".inline-segment-controls:not(.hidden)").forEach((panel) => {
       if (panel !== controls) panel.classList.add("hidden");
     });
-    controls.classList.toggle("hidden");
-    menu.setAttribute("aria-expanded", String(!controls.classList.contains("hidden")));
+    const opening = controls.classList.contains("hidden");
+    if (opening) positionSegmentControls(controls, menu);
+    else controls.classList.add("hidden");
+    menu.setAttribute("aria-expanded", String(opening));
   });
   return token;
 }
@@ -322,6 +344,7 @@ function makeParagraph(paragraph) {
 
 function renderParagraphs() {
   if (!state.project) return;
+  document.querySelectorAll(".inline-segment-controls").forEach((panel) => panel.remove());
   const visible = state.project.segments.filter(segmentMatchesCurrentFilters);
   const paragraphs = makeParagraphs(visible);
   const fragment = document.createDocumentFragment();
@@ -330,21 +353,21 @@ function renderParagraphs() {
   elements.emptyFilterMessage.classList.toggle("hidden", visible.length !== 0);
 }
 
-// Replace the legacy passage-card presentation while retaining app.js file,
-// audio and persistence behaviour.
 renderSegments = renderParagraphs;
 renderSpeakers = renderParagraphSpeakers;
 fitTextarea = () => {};
 fitAllTextareas = () => {};
 
-// app.js registered filter listeners before this layer loaded, so add a final
-// render after those legacy handlers. The paragraph view is therefore the DOM
-// state left visible to the user.
 elements.searchInput.addEventListener("input", renderParagraphs);
 elements.speakerFilter.addEventListener("change", renderParagraphs);
 elements.reviewFilter.addEventListener("change", renderParagraphs);
+window.addEventListener("resize", () => {
+  document.querySelectorAll(".inline-segment-controls:not(.hidden)").forEach((panel) => panel.classList.add("hidden"));
+});
+window.addEventListener("scroll", () => {
+  document.querySelectorAll(".inline-segment-controls:not(.hidden)").forEach((panel) => panel.classList.add("hidden"));
+}, true);
 
-// If this script is introduced while a project is already open, redraw it.
 if (state.project) {
   renderParagraphSpeakers();
   renderParagraphs();
