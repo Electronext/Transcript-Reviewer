@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:electronext:atrain:meeting-processing-input:1",
+  "title": "aTrain Meeting Processing Input",
+  "type": "object",
+  "required": ["schema", "schema_version", "meeting", "context", "people", "recordings"],
+  "properties": {
+    "schema": { "const": "atrain-meeting-processing-input" },
+    "schema_version": { "const": 1 },
+    "meeting": { "type": "object" },
+    "context": { "type": "object" },
+    "people": { "type": "array" },
+    "recordings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "order", "label", "project_id", "speakers", "segments"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "order": { "type": "number" },
+          "label": { "type": "string", "minLength": 1 },
+          "project_id": { "type": ["string", "null"] },
+          "speakers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["recording_speaker_id", "display_name", "person_id", "person_name"],
+              "properties": {
+                "recording_speaker_id": { "type": "string" },
+                "display_name": { "type": "string" },
+                "person_id": { "type": ["string", "null"] },
+                "person_name": { "type": ["string", "null"] }
+              },
+              "additionalProperties": false
+            }
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "ref",
+                "recording_id",
+                "segment_id",
+                "start_seconds",
+                "end_seconds",
+                "text",
+                "speaker",
+                "reviewed",
+                "paragraph_break_before",
+                "excluded_from_output",
+                "reviewer_note"
+              ],
+              "properties": {
+                "ref": { "type": "string", "minLength": 1 },
+                "recording_id": { "type": "string", "minLength": 1 },
+                "segment_id": { "type": ["string", "number"] },
+                "start_seconds": { "type": "number", "minimum": 0 },
+                "end_seconds": { "type": "number", "minimum": 0 },
+                "text": { "type": "string" },
+                "speaker": {
+                  "type": "object",
+                  "required": ["recording_speaker_id", "display_name", "person_id", "person_name"],
+                  "properties": {
+                    "recording_speaker_id": { "type": ["string", "null"] },
+                    "display_name": { "type": "string" },
+                    "person_id": { "type": ["string", "null"] },
+                    "person_name": { "type": ["string", "null"] }
+                  },
+                  "additionalProperties": false
+                },
+                "reviewed": { "type": "boolean" },
+                "paragraph_break_before": { "type": "boolean" },
+                "excluded_from_output": { "type": "boolean" },
+                "reviewer_note": { "type": ["string", "null"] }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
