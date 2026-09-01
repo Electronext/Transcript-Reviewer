@@ -48,6 +48,14 @@
       ? reviewer.paragraph_break_segment_ids.map(String) : []);
     const excludedIds = new Set(Array.isArray(reviewer.excluded_segment_ids)
       ? reviewer.excluded_segment_ids.map(String) : []);
+    const stageNotes = {};
+    if (Array.isArray(reviewer.next_stage_notes)) {
+      reviewer.next_stage_notes.forEach((note) => {
+        if (note && note.anchor_segment_id != null && cleanText(note.text)) {
+          stageNotes[String(note.anchor_segment_id)] = cleanText(note.text);
+        }
+      });
+    }
     const ids = [];
 
     raw.segments.forEach((segment) => {
@@ -94,7 +102,8 @@
       projectId: projectId || reviewer.project_id || "aTrain project",
       segments,
       speakers,
-      speakerOrder: ids
+      speakerOrder: ids,
+      stageNotes
     };
   }
 
@@ -134,7 +143,7 @@
     copy.reviewer = {
       ...(copy.reviewer && typeof copy.reviewer === "object" ? copy.reviewer : {}),
       schema: "atrain-transcript-reviewer",
-      schema_version: 3,
+      schema_version: 4,
       project_id: project.projectId,
       updated_at: options?.updatedAt || new Date().toISOString(),
       speakers,
@@ -145,8 +154,16 @@
       excluded_segment_ids: project.segments
         .filter((segment) => segment.excludedFromOutput)
         .map((segment) => segment.id),
+      next_stage_notes: Object.entries(project.stageNotes || {})
+        .filter(([, text]) => cleanText(text))
+        .map(([anchorSegmentId, text]) => ({
+          anchor_segment_id: anchorSegmentId,
+          scope: "paragraph",
+          text: cleanText(text),
+          include_in_output: false
+        })),
       srt_includes_speakers: options?.speakerInSrt !== false,
-      note: "Segment text and speaker fields are canonical. Paragraph boundaries and output exclusions are reversible reviewer metadata. Excluded segments remain in the canonical transcript for provenance and later processing, but are omitted from human-facing transcript exports. Original word timings are retained; word-level text is not reconstructed after textual corrections."
+      note: "Segment text and speaker fields are canonical. Paragraph boundaries, output exclusions, and next-stage notes are reversible reviewer metadata. Excluded segments and reviewer notes remain available for provenance and later processing but are not part of human-facing transcript exports."
     };
     return copy;
   }
@@ -156,11 +173,7 @@
       const name = speakerName(project, segment.speakerId);
       const text = cleanText(segment.text);
       const rendered = includeSpeakers ? `${name}: ${text}` : text;
-      return [
-        index + 1,
-        `${formatClock(segment.start, true)} --> ${formatClock(segment.end, true)}`,
-        rendered
-      ].join("\n");
+      return [index + 1, `${formatClock(segment.start, true)} --> ${formatClock(segment.end, true)}`, rendered].join("\n");
     }).join("\n\n") + "\n";
   }
 
@@ -182,7 +195,6 @@
       else current.lines.push(text);
       previousSourceIndex = sourceIndex;
     });
-
     return blocks.map((block) => {
       const body = maxqda ? block.lines.join(" ") : block.lines.join("\n");
       return `${block.name}\n${body}`;
