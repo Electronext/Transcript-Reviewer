@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>aTrain Transcript Reviewer</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="paragraph-view.css">
 </head>
 <body>
   <header class="app-header">
@@ -26,8 +27,8 @@
         <h2>Review the transcript while listening</h2>
         <p>
           Open an aTrain output folder containing <code>transcription.json</code>
-          and its audio file. Text and speaker corrections are saved back into
-          the JSON master and all transcript exports are regenerated together.
+          and its audio file. Text, speaker, paragraph and review corrections are
+          saved back into the JSON master and all transcript exports are regenerated together.
         </p>
         <button id="welcomeOpenButton" class="primary large">Choose folder</button>
         <div id="welcomeRecent" class="welcome-recent hidden">
@@ -165,5 +166,6 @@
 
   <script src="transcript-core.js"></script>
   <script src="app.js"></script>
+  <script src="paragraph-view.js"></script>
 </body>
 </html>
