@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>aTrain Transcript Reviewer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Offline transcript correction</p>
+      <h1>aTrain Transcript Reviewer</h1>
+    </div>
+    <div class="header-actions">
+      <button id="recentProjectsButton" class="secondary hidden">Recent transcripts</button>
+      <button id="openFolderButton" class="secondary">Open aTrain folder</button>
+      <button id="saveButton" class="primary" disabled>Save corrected transcript</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="welcomePanel" class="welcome-panel">
+      <div class="welcome-card">
+        <div class="welcome-icon" aria-hidden="true">♪</div>
+        <h2>Review the transcript while listening</h2>
+        <p>
+          Open an aTrain output folder containing <code>transcription.json</code>
+          and its audio file. Text and speaker corrections are saved back into
+          the JSON master and all transcript exports are regenerated together.
+        </p>
+        <button id="welcomeOpenButton" class="primary large">Choose folder</button>
+        <div id="welcomeRecent" class="welcome-recent hidden">
+          <p class="recent-heading">Recent transcripts</p>
+          <div id="welcomeRecentList" class="recent-list"></div>
+        </div>
+        <p class="privacy-note">Everything stays on this computer.</p>
+      </div>
+    </section>
+
+    <section id="workspace" class="workspace hidden">
+      <section class="player-panel">
+        <div class="project-heading">
+          <div>
+            <p id="projectPath" class="eyebrow">aTrain project</p>
+            <h2 id="projectTitle">Transcript</h2>
+          </div>
+          <div class="save-state">
+            <span id="dirtyDot" class="dirty-dot"></span>
+            <span id="saveStatus">No unsaved changes</span>
+          </div>
+        </div>
+
+        <audio id="audioPlayer" controls preload="metadata"></audio>
+        <div id="audioMissing" class="audio-missing hidden" role="status">
+          <span>The recording was not found in the transcript folder.</span>
+          <button id="chooseAudioButton" class="small-button" type="button">Choose audio file</button>
+        </div>
+
+        <div class="transport">
+          <button id="backButton" class="icon-button" title="Back 5 seconds">−5s</button>
+          <button id="playButton" class="play-button" title="Play or pause">Play</button>
+          <button id="forwardButton" class="icon-button" title="Forward 5 seconds">+5s</button>
+          <label>
+            Speed
+            <select id="speedSelect">
+              <option value="0.75">0.75×</option>
+              <option value="1" selected>1×</option>
+              <option value="1.25">1.25×</option>
+              <option value="1.5">1.5×</option>
+              <option value="1.75">1.75×</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+          <label class="checkbox-label">
+            <input id="followPlayback" type="checkbox" checked>
+            Follow playback
+          </label>
+          <span id="timeDisplay" class="time-display">00:00 / 00:00</span>
+        </div>
+      </section>
+
+      <section class="toolbar">
+        <label class="search-field">
+          <span>Search</span>
+          <input id="searchInput" type="search" placeholder="Find words or speakers">
+        </label>
+        <label>
+          Speaker
+          <select id="speakerFilter">
+            <option value="">All speakers</option>
+          </select>
+        </label>
+        <label>
+          Review
+          <select id="reviewFilter">
+            <option value="">All passages</option>
+            <option value="unreviewed">Not reviewed</option>
+            <option value="reviewed">Reviewed</option>
+          </select>
+        </label>
+        <div class="review-progress">
+          <span id="reviewCount">0 / 0 reviewed</span>
+          <div class="progress-track"><span id="progressBar"></span></div>
+        </div>
+      </section>
+
+      <div class="content-grid">
+        <aside class="speaker-panel">
+          <div class="panel-heading">
+            <div class="speaker-panel-title">
+              <p class="eyebrow">Participants</p>
+              <h3>Speakers</h3>
+            </div>
+            <div class="speaker-panel-actions">
+              <button id="addSpeakerButton" class="small-button">Add</button>
+              <button
+                id="toggleSpeakerPanelButton"
+                class="collapse-button"
+                type="button"
+                aria-expanded="true"
+                title="Collapse speakers panel"
+              >‹</button>
+            </div>
+          </div>
+          <p class="hint">Rename a speaker once; the name is used throughout every export.</p>
+          <div id="speakerList" class="speaker-list"></div>
+          <label class="checkbox-label export-option">
+            <input id="speakerInSrt" type="checkbox" checked>
+            Include speaker names in SRT
+          </label>
+        </aside>
+
+        <section class="transcript-panel">
+          <div id="emptyFilterMessage" class="empty-filter hidden">
+            No passages match the current filters.
+          </div>
+          <div id="segmentList" class="segment-list"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="messageDialog">
+    <form method="dialog">
+      <h2 id="dialogTitle">Message</h2>
+      <p id="dialogMessage"></p>
+      <button class="primary">OK</button>
+    </form>
+  </dialog>
+
+  <dialog id="recentProjectsDialog" class="recent-dialog">
+    <form method="dialog">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Stored on this computer</p>
+          <h2>Recent transcripts</h2>
+        </div>
+        <button class="dialog-close" aria-label="Close">×</button>
+      </div>
+      <div id="dialogRecentList" class="recent-list"></div>
+      <p id="noRecentProjects" class="no-recents hidden">No recent transcripts yet.</p>
+    </form>
+  </dialog>
+
+  <script src="transcript-core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
