@@ -54,6 +54,121 @@ function makeSpeakerSelect(selectedId, onChange, className) {
   return select;
 }
 
+function paragraphStartsForSpeaker(speakerId) {
+  if (!state.project) return [];
+  return state.project.segments.filter((segment, index, segments) => {
+    if (segment.speakerId !== speakerId) return false;
+    if (index === 0) return true;
+    const previous = segments[index - 1];
+    return previous.speakerId !== speakerId || Boolean(segment.paragraphBreakBefore);
+  });
+}
+
+function segmentSourceIndex(segment) {
+  return state.project.segments.findIndex((item) => String(item.id) === String(segment.id));
+}
+
+function activeSourceIndex() {
+  if (state.activeId == null) return -1;
+  return state.project.segments.findIndex((segment) => String(segment.id) === String(state.activeId));
+}
+
+function revealSegment(segment) {
+  if (!segment) return;
+
+  let token = document.querySelector(`.segment[data-segment-id="${CSS.escape(String(segment.id))}"]`);
+  if (!token) {
+    // Speaker navigation should reveal the contribution in conversational
+    // context rather than leave it hidden by an unrelated filter.
+    elements.searchInput.value = "";
+    elements.speakerFilter.value = "";
+    elements.reviewFilter.value = "";
+    renderParagraphs();
+    token = document.querySelector(`.segment[data-segment-id="${CSS.escape(String(segment.id))}"]`);
+  }
+
+  state.activeId = segment.id;
+  document.querySelectorAll(".paragraph-segment.active").forEach((item) => item.classList.remove("active"));
+  if (!token) return;
+  token.classList.add("active");
+  (token.closest(".transcript-paragraph") || token).scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function jumpToFirstSpeakerParagraph(speakerId) {
+  revealSegment(paragraphStartsForSpeaker(speakerId)[0]);
+}
+
+function jumpToNextSpeakerParagraph(speakerId) {
+  const starts = paragraphStartsForSpeaker(speakerId);
+  if (!starts.length) return;
+  const activeIndex = activeSourceIndex();
+  const target = starts.find((segment) => segmentSourceIndex(segment) > activeIndex) || starts[0];
+  revealSegment(target);
+}
+
+function jumpToPreviousSpeakerParagraph(speakerId) {
+  const starts = paragraphStartsForSpeaker(speakerId);
+  if (!starts.length) return;
+  const activeIndex = activeSourceIndex();
+  let target = starts[starts.length - 1];
+  if (activeIndex >= 0) {
+    const earlier = starts.filter((segment) => segmentSourceIndex(segment) < activeIndex);
+    if (earlier.length) target = earlier[earlier.length - 1];
+  }
+  revealSegment(target);
+}
+
+function speakerNavButton(label, title, handler) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "speaker-jump-button";
+  button.textContent = label;
+  button.title = title;
+  button.setAttribute("aria-label", title);
+  button.addEventListener("click", handler);
+  return button;
+}
+
+function renderParagraphSpeakers() {
+  elements.speakerList.replaceChildren();
+  state.project.speakerOrder.forEach((id) => {
+    const speaker = state.project.speakers[id];
+    const row = document.createElement("div");
+    row.className = "speaker-row paragraph-speaker-row";
+
+    const swatch = document.createElement("span");
+    swatch.className = "speaker-swatch";
+    swatch.style.backgroundColor = speaker.color;
+
+    const input = document.createElement("input");
+    input.className = "speaker-name";
+    input.type = "text";
+    input.value = speaker.name;
+    input.setAttribute("aria-label", `Display name for ${id}`);
+    input.addEventListener("input", () => {
+      speaker.name = input.value.trim() || id;
+      updateSpeakerLabels(id);
+      renderParagraphs();
+      setDirty(true);
+    });
+
+    const sourceId = document.createElement("span");
+    sourceId.className = "speaker-id";
+    sourceId.textContent = id === Core.UNASSIGNED ? "No aTrain speaker assigned" : id;
+
+    const navigation = document.createElement("div");
+    navigation.className = "speaker-jump-controls";
+    navigation.append(
+      speakerNavButton("‹", `Previous ${speaker.name} paragraph`, () => jumpToPreviousSpeakerParagraph(id)),
+      speakerNavButton("First", `First ${speaker.name} paragraph`, () => jumpToFirstSpeakerParagraph(id)),
+      speakerNavButton("›", `Next ${speaker.name} paragraph`, () => jumpToNextSpeakerParagraph(id))
+    );
+
+    row.append(swatch, input, sourceId, navigation);
+    elements.speakerList.append(row);
+  });
+}
+
 function makeSegmentControls(segment, token) {
   const controls = document.createElement("span");
   controls.className = "inline-segment-controls hidden";
@@ -121,6 +236,9 @@ function makeSegmentToken(segment) {
   if (segment.changed) token.classList.add("changed");
   if (String(segment.id) === String(state.activeId)) token.classList.add("active");
 
+  const tools = document.createElement("span");
+  tools.className = "segment-tools";
+
   const timestamp = document.createElement("button");
   timestamp.type = "button";
   timestamp.className = "audio-anchor";
@@ -131,6 +249,15 @@ function makeSegmentToken(segment) {
     event.stopPropagation();
     playFrom(segment.start);
   });
+
+  const menu = document.createElement("button");
+  menu.type = "button";
+  menu.className = "segment-menu-button";
+  menu.textContent = "⋯";
+  menu.title = "Segment options";
+  menu.setAttribute("aria-label", `Options for segment at ${Core.formatClock(segment.start, false)}`);
+  menu.setAttribute("aria-expanded", "false");
+  tools.append(timestamp, menu);
 
   const text = document.createElement("span");
   text.className = "segment-inline-text";
@@ -151,15 +278,7 @@ function makeSegmentToken(segment) {
     text.textContent = cleaned;
   });
 
-  const menu = document.createElement("button");
-  menu.type = "button";
-  menu.className = "segment-menu-button";
-  menu.textContent = "⋯";
-  menu.title = "Segment options";
-  menu.setAttribute("aria-label", `Options for segment at ${Core.formatClock(segment.start, false)}`);
-  menu.setAttribute("aria-expanded", "false");
-
-  token.append(timestamp, text, menu);
+  token.append(tools, text);
   const controls = makeSegmentControls(segment, token);
   menu.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -211,8 +330,10 @@ function renderParagraphs() {
   elements.emptyFilterMessage.classList.toggle("hidden", visible.length !== 0);
 }
 
-// Replace the segment-card renderer used by renderAll(), saves and speaker edits.
+// Replace the legacy passage-card presentation while retaining app.js file,
+// audio and persistence behaviour.
 renderSegments = renderParagraphs;
+renderSpeakers = renderParagraphSpeakers;
 fitTextarea = () => {};
 fitAllTextareas = () => {};
 
@@ -224,4 +345,7 @@ elements.speakerFilter.addEventListener("change", renderParagraphs);
 elements.reviewFilter.addEventListener("change", renderParagraphs);
 
 // If this script is introduced while a project is already open, redraw it.
-if (state.project) renderParagraphs();
+if (state.project) {
+  renderParagraphSpeakers();
+  renderParagraphs();
+}
