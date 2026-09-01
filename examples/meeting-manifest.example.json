@@ -1,0 +1,74 @@
+{
+  "schema": "atrain-meeting-manifest",
+  "schema_version": 1,
+  "meeting": {
+    "id": "meeting-2026-05-17-pretoria-band",
+    "title": "Pretoria Corps Band Meeting",
+    "date": "2026-05-17",
+    "status": "review",
+    "assigned_reviewer_ids": ["reviewer-1"]
+  },
+  "recordings": [
+    {
+      "id": "recording-1",
+      "order": 1,
+      "label": "Part 1",
+      "project_id": "atrain-project-part-1",
+      "source_ref": "source-package:item-1",
+      "audio_ref": "media:recording-1",
+      "transcript_ref": "transcript:recording-1"
+    },
+    {
+      "id": "recording-2",
+      "order": 2,
+      "label": "Part 2",
+      "project_id": "atrain-project-part-2",
+      "source_ref": "source-package:item-2",
+      "audio_ref": "media:recording-2",
+      "transcript_ref": "transcript:recording-2"
+    }
+  ],
+  "people": [
+    {
+      "id": "person-richard",
+      "name": "Richard Whittemore",
+      "aliases": ["Richard"],
+      "roles": []
+    },
+    {
+      "id": "person-karen",
+      "name": "Karen Whittemore",
+      "aliases": ["Karen"],
+      "roles": []
+    }
+  ],
+  "speaker_mappings": [
+    {
+      "recording_id": "recording-1",
+      "speaker_id": "SPEAKER_00",
+      "person_id": "person-richard"
+    },
+    {
+      "recording_id": "recording-2",
+      "speaker_id": "SPEAKER_02",
+      "person_id": "person-richard"
+    },
+    {
+      "recording_id": "recording-1",
+      "speaker_id": "SPEAKER_03",
+      "person_id": "person-karen"
+    }
+  ],
+  "context": {
+    "agenda_ref": "context:agenda.docx",
+    "vocabulary": [
+      "Pretoria Corps",
+      "Learner Band",
+      "Band Local Officer",
+      "backing tracks"
+    ],
+    "notes": [
+      "Agenda and vocabulary are hints only and are not evidence that an item was discussed."
+    ]
+  }
+}
